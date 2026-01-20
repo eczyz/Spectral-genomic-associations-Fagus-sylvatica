@@ -1,0 +1,246 @@
+#####################################################################################################################################
+
+Code associated with manuscript:
+Associations of genomic and spectral diversity in European beech
+Ewa A. Czyż*, Bernhard Schmid, Maarten B. Eppinga, Marylaure de La Harpe, Aboubakr Moradi, Cheng Li, Domitille Coq—Etchegaray, Michael E. Schaepman, Meredith C. Schuman
+*To whom correspondence should be addressed; E-mail: ewa.a.czyz@jpl.nasa.gov
+Coding language: R v.4.4.3
+
+#####################################################################################################################################
+## input file: Fagus_Europe.xlsx
+#####################################################################################################################################
+## load data, please adjust the path for the folder where the 'Fagus_matrix' is located in 
+path = "C:/Users/czyz/Desktop/GenSpec/manuscripts/LeafLevel/analysis"
+setwd(path)
+
+## load vector species and borders data
+Fs<-st_read("Fagus_sylvatica_EUFORGEN.shp")
+World <- rnaturalearth::ne_countries(returnclass = 'sf',scale = 'medium')
+
+## load excel table
+dat<-read_excel('Fagus_matrix_updated.xlsx')
+
+datGen <- as.data.frame(dat[ , c(26:27)]) # select genetic Principal Coordinates
+datEnv <- as.data.frame(dat[ , c(7:25)]) # select environmental variables
+datSpe <- as.data.frame(dat[ , c(28:240)]) # select reflectance data
+datDOY <- as.data.frame(dat[ , c(677)]) # select reflectance data
+datAll <- as.data.frame(dat[ , c(7:677)]) # select reflectance data
+
+# get site factor
+datSite <- factor(dat$SiteID)
+dat$SiteID <- datSite
+
+# get colours 
+blue <-"#0C3646" # set colors
+green <-"#C6CC38" # set colors
+yellow <- "#FACF0D" # set colors
+color1 <- "#783248" # set colors
+custom.col<-c("#3c3846","#3d3447","#753248","#783248","#694d40","#c5c21f","#784543","#adb226","#888c2b","#d5c71b","#fbd00d","#efce11","#fbd00d","#f7cf0f","#e0c616","#576b35","#354442","#465f3a","#737f2f","#737f2f","#657433","#213d44","#617233")
+
+
+# get normalization coefficient sites  - Env
+normEnvCoeff <- matrix(nrow=2,ncol=19) 
+for(i in 1:19) {  
+        normEnvCoeff[1,i] <- min(datEnv[,i])
+        normEnvCoeff[2,i] <- max(datEnv[,i])
+}
+
+min_mat <- t(matrix(replicate(219,normEnvCoeff[1,]),nrow=19))
+max_mat <- t(matrix(replicate(219,normEnvCoeff[2,]),nrow=19))
+datEnv_norm <- (datEnv-min_mat)/(max_mat-min_mat) 
+
+# get normalization coefficient sites - Spe
+normSpeCoeff <- matrix(nrow=2,ncol=216) 
+for(i in 1:216) {  
+        normSpeCoeff[1,i] <- min(datSpe[,i])
+        normSpeCoeff[2,i] <- max(datSpe[,i])
+}
+min_mat <- t(matrix(replicate(219,normSpeCoeff[1,]),nrow=216))
+max_mat <- t(matrix(replicate(219,normSpeCoeff[2,]),nrow=216))
+datSpe_norm <- (datSpe-min_mat)/(max_mat-min_mat) 
+
+# get normalization coefficient sites - Gen
+normGenCoeff <- matrix(nrow=2,ncol=2) 
+for(i in 1:2) {  
+        normGenCoeff[1,i] <- min(datGen[,i])
+        normGenCoeff[2,i] <- max(datGen[,i])
+}
+min_mat <- t(matrix(replicate(219,normGenCoeff[1,]),nrow=2))
+max_mat <- t(matrix(replicate(219,normGenCoeff[2,]),nrow=2))
+datGen_norm <- (datGen-min_mat)/(max_mat-min_mat) 
+
+# get normalization coefficient sites - All
+normAllCoeff <- matrix(nrow=2,ncol=671) 
+for(i in 1:671) {  
+        normAllCoeff[1,i] <- min(datAll[,i])
+        normAllCoeff[2,i] <- max(datAll[,i])
+}
+min_mat <- t(matrix(replicate(219,normAllCoeff[1,]),nrow=671))
+max_mat <- t(matrix(replicate(219,normAllCoeff[2,]),nrow=671))
+datAll_norm <- (datAll-min_mat)/(max_mat-min_mat) 
+
+## Plot demographic structure
+dev.new()
+plot(dat$Gen_PC1, dat$Gen_PC2,pch = 21, col="white", bg=custom.col[dat$SiteID],cex.lab=1.2,font.lab=2,
+     xlab='Genetic Principal Coordinate 1st (4.8 %)',
+     ylab='Genetic Principal Coordinate 2nd (2.9 %)',
+     main='demographic structure',
+    #xlim=c(-10000,10000), ylim=c(-10000,10000),
+    abline(h=0, v=0, lty=2))
+
+######################################################################################################################################    
+## MODELS ############################################################################################################################
+######################################################################################################################################
+## Model Genetic-Env - pure environment
+datEnv_norm$DOY <- datAll_norm[["DOY"]]
+RDAenv <- rda(datGen ~ . + Condition(DOY), data = datEnv_norm)
+R2<-RsquareAdj(RDAenv)                            # var explained by global model
+anova(RDAenv)                                     # check the significance of global model
+mod0 <- rda(datGen ~ 1+ Condition(DOY), datEnv_norm)              # Model with intercept only, null model
+mod1 <- rda(datGen ~ .+ Condition(DOY), datEnv_norm)              # Global model
+fwd.sel <- ordistep(mod0,                         # lower model limit 
+                    scope = formula(mod1),        # upper model limit (the "full" model)
+                    direction = "forward",
+                    R2scope = TRUE,               
+                    pstep = 1000,
+                    trace = TRUE)                 
+fwd.sel$anova
+fwd.sel$call                                                               # call best selected model
+# RDAenv <- rda(datGen ~ BIO_09  + BIO_03 + BIO_15 , datEnv_norm)            # call best selected model VIF dependent on AIC
+# RDAenv <- rda(datGen ~ BIO_09  + BIO_03 + BIO_15 + BIO_17 , datEnv_norm)   # VIF and AIC independent
+RDAenv <- rda(datGen ~ BIO_09 + BIO_03 + BIO_15+ BIO_17 ,datAll_norm)  
+vif.cca(RDAenv)                                                            # check VIF of the model set the value of 2.5 as cut off, Johnston R, Jones K, Manley D. Confounding and collinearity in regression analysis: a cautionary tale and an alternative procedure, illustrated by studies of British voting behaviour. Qual Quant. 2018;52(4):1957-1976. doi:10.1007/s11135-017-0584-6
+
+dev.new()
+#plot
+R2<-RsquareAdj(RDAenv)
+
+perc <- round(100*(summary(RDAenv)$cont$importance[2, 1:2]), 2)
+bp <- scores(RDAenv, display = 'bp')
+f <- factor(sample(1:10, nrow(bp), replace = TRUE))
+cols <- c("gray","gray","gray")
+#fig <-plot(RDAenv, type = 'n', scaling = 2,xlab=paste("RDA1 (",perc[1],"%)"),ylab=paste("RDA2 (",perc[2],"%)"),main = paste("Env, Variation in genetic structure explained:",round(R2$r.squared*100,digits = 2),"%"),xlim=c(-100, 100), ylim=c(-100, 100),cex.lab=1.2,font.lab=2, alpha = 0.5)
+fig <-plot(RDAenv, type = 'n', scaling = 2,xlab=paste("RDA1 (",perc[1],"%)"),ylab=paste("RDA2 (",perc[2],"%)"),main = paste("Env, Variation in genetic structure explained:",round(R2$r.squared*100,digits = 2),"%"),cex.lab=1.2,font.lab=2, alpha = 0.5,xlim=c(-1000, 1000), ylim=c(-1000, 1000))
+mul <- ordiArrowMul(bp, fill = 0.75)
+arrows(0, 0, mul * bp[,1], mul * bp[,2],
+       length = 0.05, col = cols)
+labs <- rownames(bp)
+text(ordiArrowTextXY(mul * bp, labs), labs, col = cols, cex=1.2)
+points(fig, "sites", pch=21, col="white", bg=custom.col[dat$SiteID], cex=1.2)
+summary(RDAenv)
+anova.cca(RDAenv, step = 1000)                                   # test significance of the model
+anova.cca(RDAenv, step = 1000, by = "term")                      # test significance of each variable
+anova.cca(RDAenv, step = 1000, by = "axis")                      # test significance of axis
+perc <- round(100*(summary(RDAenv)$cont$importance[2, 1:2]), 2)  # find how much perceantego is explained
+R2<-RsquareAdj(RDAenv)
+legend("topleft", c(paste('R2:',round(R2$r.squared,digits = 2)),paste('p:',round(anova(RDAenv)[[1,4]],digits = 3))), bty="n")
+
+####################################################################################################################################
+## Model Genetic-Spe - pure spectra
+datSpe_norm$DOY <- datAll_norm[["DOY"]]
+RDAspe <- rda(datGen ~ . + Condition(DOY), data = datSpe_norm)
+R2<-RsquareAdj(RDAspe)                            # var explained by global model
+anova(RDAspe)                                     # check the significance of global model
+mod0 <- rda(datGen~ 1 + Condition(DOY), datSpe_norm)              # Model with intercept only, null model
+mod1 <- rda(datGen ~ . + Condition(DOY), datSpe_norm)              # Global model
+fwd.sel <- ordistep(mod0,                         # lower model limit 
+                    scope = formula(mod1),        # upper model limit (the "full" model)
+                    direction = "forward",
+                    R2scope = TRUE, 
+                    pstep = 1000,
+                    trace = TRUE) 
+fwd.sel$anova
+fwd.sel$call                                                                    # call best selected model
+# RDAspe <- rda(datGen ~ Wvl350 + Wvl530 + Wvl790 +Wvl1500, datSpe_norm)        # call best selected model VIF dependent on AIC
+# RDAspe <- rda(datGen_norm ~ Wvl350 + Wvl530 + Wvl790 +Wvl1500 +Wvl410, datSpe_norm)  # check VIF of the model set the value of 2.5 as cut off, Johnston R, Jones K, Manley D. Confounding and collinearity in regression analysis: a cautionary tale and an alternative procedure, illustrated by studies of British voting behaviour. Qual Quant. 2018;52(4):1957-1976. doi:10.1007/s11135-017-0584-6
+Wvl350 + Wvl520 + Wvl510 +
+    Wvl420 + Wvl380 + Wvl660 + Wvl460 + Wvl1540 + Wvl440 + Wvl500 +
+    Wvl490 + Wvl1840 + Wvl1390 + Wvl1780 + Wvl1800 + Wvl610
+
+RDAspe <- rda(datGen ~ Wvl350 + Wvl520  + Wvl420+ Wvl1540   + Condition(DOY), datSpe_norm)
+vif.cca(RDAspe) 
+
+dev.new()
+#plot
+ordiplot (RDAspe, display = c('sites', 'bp'), type = 't')
+R2<-RsquareAdj(RDAspe)
+perc <- round(100*(summary(RDAspe)$cont$importance[2, 1:2]), 2)
+bp <- scores(RDAspe, display = 'bp')
+f <- factor(sample(1:10, nrow(bp), replace = TRUE))
+cols <- c("gray","gray","gray")
+#fig <-plot(RDAspe, type = 'n', scaling = 2,xlab=paste("RDA1 (",perc[1],"%)"),ylab=paste("RDA2 (",perc[2],"%)"),main = paste("Spe, Variation in genetic structure explained:",round(R2$r.squared*100,digits = 2),"%"),xlim=c(-100, 100), ylim=c(-100, 100),cex.lab=1.2,font.lab=2)
+fig <-plot(RDAenv, type = 'n', scaling = 2,xlab=paste("RDA1 (",perc[1],"%)"),ylab=paste("RDA2 (",perc[2],"%)"),main = paste("Env, Variation in genetic structure explained:",round(R2$r.squared*100,digits = 2),"%"),cex.lab=1.2,font.lab=2, alpha = 0.5,xlim=c(-1000, 1000), ylim=c(-1000, 1000))
+
+mul <- ordiArrowMul(bp, fill = 0.75)
+arrows(0, 0, mul * bp[,1], mul * bp[,2],
+       length = 0.05, col = cols)
+labs <- rownames(bp)
+text(ordiArrowTextXY(mul * bp, labs), labs, col = cols, cex=1.2)
+points(fig, "sites", pch=21, col="white", bg=custom.col[dat$SiteID], cex=1.2)
+summary(RDAspe)
+anova.cca(RDAspe, step = 1000)                                  # test significance of the model
+anova.cca(RDAspe, step = 1000, by = "term")                     # test significance of each variable
+anova.cca(RDAspe, step = 1000, by = "axis")                     # test significance of axis
+R2<-RsquareAdj(RDAspe)
+R2<-RsquareAdj(RDAspe) 
+legend("topleft", c(paste('R2:',round(R2$r.squared,digits = 2)),paste('p:',round(anova(RDAspe)[[1,4]],digits = 3))), bty="n")
+site_scores <- scores(RDAenv, display = "sites")
+######################################################################################################################################
+## Model Genetic-Env-Spe - env + spectra, created based on above selection
+datEnvSpe_norm <- cbind(datEnv_norm,datSpe_norm)
+datEnvSpe_norm$DOY <- datAll_norm[["DOY"]]
+RDAspeEnv <- rda(datGen ~ BIO_09 + BIO_03 + BIO_15 + BIO_17 + Wvl350 + Wvl520  + Wvl420+ Wvl1540+ Condition(DOY),datEnvSpe_norm)
+R2<-RsquareAdj(RDAspeEnv)                                        # var explained by global model
+anova(RDAspeEnv)                                                 # check the significance of global model
+mod0 <- rda(datGen ~ 1+ Condition(DOY), dat)                                     # Model with intercept only, null model
+mod1 <- rda(datGen ~ BIO_09 + BIO_03 + BIO_15 + BIO_17 + Wvl350 + Wvl520  + Wvl420+ Wvl1540+ Condition(DOY), datEnvSpe_norm)  # Global model
+fwd.sel <- ordistep(mod0, 
+                    scope = formula(mod1), 
+                    direction = "forward",
+                    R2scope = TRUE, 
+                    pstep = 1000,
+                    trace = TRUE) 
+fwd.sel$call                                                     # call best selected model
+RDAspeEnv <- rda(datGen ~  BIO_09 + BIO_03 + Wvl350 +BIO_15 + Wvl520 + Wvl420 + Wvl1540  + Condition(DOY), datEnvSpe_norm)
+vif.cca(RDAspeEnv) # check VIF of the model
+
+dev.new()
+# plot
+R2<-RsquareAdj(RDAspeEnv)
+perc <- round(100*(summary(RDAspeEnv)$cont$importance[2, 1:2]), 2)
+bp <- scores(RDAspeEnv, display = 'bp')
+f <- factor(sample(1:10, nrow(bp), replace = TRUE))
+cols <- c("gray","gray","gray","gray","gray","gray")
+fig <-plot(RDAspeEnv, type = 'n', scaling = 2,xlab=paste("RDA1 (",perc[1],"%)"),ylab=paste("RDA2 (",perc[2],"%)"),main = paste("Spe, Variation in genetic structure explained:",round(R2$r.squared*100,digits = 2),"%"),cex.lab=1.2,font.lab=2,xlim=c(-1000, 1000), ylim=c(-1000, 1000))
+mul <- ordiArrowMul(bp, fill = 0.75)
+arrows(0, 0, mul * bp[,1], mul * bp[,2],
+       length = 0.05, col = cols)
+labs <- rownames(bp)
+text(ordiArrowTextXY(mul * bp, labs), labs, col = cols, cex=1.2)
+points(fig, "sites", pch=21, col="white", bg=custom.col[dat$SiteID], cex=1.2)
+
+summary(RDAspeEnv)
+anova.cca(RDAspeEnv, step = 1000) # test significance of the model
+anova.cca(RDAspeEnv, step = 1000, by = "term") # test significance of each variable
+anova.cca(RDAspeEnv, step = 1000, by = "axis") # test significance of axis
+R2<-RsquareAdj(RDAspeEnv)
+anova(RDAspeEnv)[[1,4]]
+R2<-RsquareAdj(RDAspeEnv) 
+legend("topleft", c(paste('R2:',round(R2$r.squared,digits = 2)),paste('p:',round(anova(RDAspeEnv)[[1,4]],digits = 3))), bty="n")
+
+
+## CONDITIONS for MODELS #################################################################################################################
+## Model Genetic-Env-Spe - independent contributions to explanation of variations
+
+RDAspeEnv <- rda(datGen ~ BIO_09 + BIO_03 + Wvl350 +BIO_15 + Wvl520 + Wvl420 + Wvl1540 + Condition(DOY), datEnvSpe_norm)
+R2<-RsquareAdj(RDAspeEnv)          # var explained by global model
+
+RDAspeEnv_Env <- rda(datGen ~ BIO_09 + BIO_03  +BIO_15  + Condition(Wvl350  + Wvl520 + Wvl420 + Wvl1540+DOY)  , datEnvSpe_norm)
+R2<-RsquareAdj(RDAspeEnv_Env)          # var explained by environment only
+
+RDAspeEnv_Spe <- rda(datGen ~ Wvl350  + Wvl520 + Wvl420 + Wvl1540 + Condition(BIO_09 + BIO_03 +BIO_15+DOY)  , datEnvSpe_norm)
+R2<-RsquareAdj(RDAspeEnv_Spe)          # var explained by spectra only
+
+datEnvSpe_norm$siteID = datSite
+RDAspeEnv_Site <- rda(datGen ~ BIO_09 + BIO_03 + Wvl350 +BIO_15 + Wvl520 + Wvl420 + Wvl1540 + Condition(DOY + siteID)  , datEnvSpe_norm)
+R2<-RsquareAdj(RDAspeEnv_Site)          # var explained within sites
