@@ -6,7 +6,7 @@ Ewa A. Czyż*, Bernhard Schmid, Maarten B. Eppinga, Marylaure de La Harpe, Aboub
 *To whom correspondence should be addressed; E-mail: ewa.a.czyz@jpl.nasa.gov
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% GWAS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% GWAS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 library("GAPIT")
 
 myY  <- read.csv("~/shares/Fagus/EuropeanFagus_Novogene/code/GWAS/GWAS_new_2025/GWAS_climatic_DOY/GWAS_phenotype_wvl_sequenced.csv", head = TRUE)
