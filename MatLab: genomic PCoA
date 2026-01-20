@@ -1,0 +1,40 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Code associated with manuscript:
+Associations of genomic and spectral diversity in European beech
+Ewa A. Czyż*, Bernhard Schmid, Maarten B. Eppinga, Marylaure de La Harpe, Aboubakr Moradi, Cheng Li, Domitille Coq—Etchegaray, Michael E. Schaepman, Meredith C. Schuman
+*To whom correspondence should be addressed; E-mail: ewa.a.czyz@jpl.nasa.gov
+Coding language: MatLab v.R2023b
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% calculate PCoA from genomic distances %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+cd ('C:\Users\czyz\Desktop\GenSpec\manuscripts\LeafLevel\analysis\GenDist')
+
+A = load('Dist_ID.mat');
+B = load('Dist.mat');
+Dist_ID = A.Dist_ID;
+Dist = B.VCFsallnew
+[a,b]=sort(Dist_ID);
+Dist(isnan(Dist)) = 0;
+symmetricMatrix = (Dist + Dist');
+imagesc(symmetricMatrix(b,b))
+segregatedDistances = symmetricMatrix(b,b);
+[Y,eigvals] = cmdscale(segregatedDistances)
+[eigvals eigvals/max(abs(eigvals))]
+scatter(Y(:,1),Y(:,2))
+
+% calculate 
+symmetricMatrix(b,b)
+splitData = cellfun(@(x) strsplit(x, '_'), a(:,1), 'UniformOutput', false);
+firstPart = cellfun(@(x) x{1}, splitData, 'UniformOutput', false);
+[labels, ~,ib] = unique(firstPart);
+
+for i = 1:23
+    A = segregatedDistances(ib == i,ib == i);
+    lowerLeft = tril(A);
+    nonZeroVals = lowerLeft(lowerLeft ~= 0);
+    DistanceVariation(i)=std(nonZeroVals)
+    clear lowerLeft nonZeroVals A
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
