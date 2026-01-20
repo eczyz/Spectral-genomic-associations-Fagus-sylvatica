@@ -1,0 +1,23 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Code associated with manuscript:
+Associations of genomic and spectral diversity in European beech
+Ewa A. Czyż*, Bernhard Schmid, Maarten B. Eppinga, Marylaure de La Harpe, Aboubakr Moradi, Cheng Li, Domitille Coq—Etchegaray, Michael E. Schaepman, Meredith C. Schuman
+*To whom correspondence should be addressed; E-mail: ewa.a.czyz@jpl.nasa.gov
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% GWAS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+library("GAPIT")
+
+myY  <- read.csv("~/shares/Fagus/EuropeanFagus_Novogene/code/GWAS/GWAS_new_2025/GWAS_climatic_DOY/GWAS_phenotype_wvl_sequenced.csv", head = TRUE)
+myG <- read.delim("~/shares/Fagus/EuropeanFagus_Novogene/SNPs_BGC_2025/plink_BGC_genotype_fs_european_m005_im10_nochr_prunned_2_10_002.hmp.txt", head = FALSE)
+myC <- read.csv("~/shares/Fagus/EuropeanFagus_Novogene/code/GWAS/GWAS_new_2025/GWAS_climatic_DOY/GWAS_climatic.csv", head = TRUE)
+#Step 2: Run GAPIT
+myGAPIT <- GAPIT(
+  Y=myY,
+  G=myG,
+  model=c("Blink"),
+  PCA.total=4,
+  CV=myC
+)
+
